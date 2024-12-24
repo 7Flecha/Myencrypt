@@ -1,0 +1,95 @@
+#include <iostream>
+#include <fstream>
+#include <filesystem>
+#include <vector>
+
+namespace fs = std::filesystem;
+
+// Função para criptografar/descriptografar um arquivo usando XOR
+void xorFile(const std::string& inputFile, const std::string& outputFile, unsigned char key) {
+    std::ifstream in(inputFile, std::ios::binary); // Abre o arquivo original
+    if (!in) {
+        std::cerr << "Erro ao abrir o arquivo: " << inputFile << "\n";
+        return;
+    }
+
+    std::ofstream out(outputFile, std::ios::binary); // Cria o arquivo criptografado
+    if (!out) {
+        std::cerr << "Erro ao criar o arquivo: " << outputFile << "\n";
+        return;
+    }
+
+    // Processa os bytes do arquivo original
+    char buffer;
+    while (in.get(buffer)) {
+        char encryptedByte = buffer ^ key; // XOR no byte
+        out.put(encryptedByte);           // Escreve no arquivo de saída
+    }
+
+    in.close();
+    out.close();
+}
+
+// Função para criptografar/descriptografar todos os arquivos em uma pasta
+void processFolder(const std::string& folderPath, unsigned char key, bool encrypt) {
+    if (!fs::exists(folderPath)) {
+        std::cerr << "A pasta não existe: " << folderPath << "\n";
+        return;
+    }
+
+    // Itera sobre todos os arquivos na pasta
+    for (const auto& entry : fs::directory_iterator(folderPath)) {
+        if (entry.is_regular_file()) { // Apenas arquivos regulares
+            std::string inputFile = entry.path().string();
+            std::string outputFile;
+
+            if (encrypt) {
+                // Gera o nome do arquivo criptografado com a extensão .mrs
+                outputFile = inputFile + ".mrs";
+                std::cout << "Criptografando: " << inputFile << " -> " << outputFile << "\n";
+            } else {
+                // Gera o nome do arquivo descriptografado (removendo .mrs)
+                if (inputFile.substr(inputFile.size() - 4) == ".mrs") {
+                    outputFile = inputFile.substr(0, inputFile.size() - 4);
+                    std::cout << "Descriptografando: " << inputFile << " -> " << outputFile << "\n";
+                } else {
+                    std::cerr << "Arquivo ignorado (não é .mrs): " << inputFile << "\n";
+                    continue;
+                }
+            }
+
+            // Chama a função de criptografia/descriptografia
+            xorFile(inputFile, outputFile, key);
+
+            // Remove o arquivo original após a operação (opcional)
+            // fs::remove(inputFile);
+        }
+    }
+}
+
+int main() {
+    std::string folderPath;
+    unsigned char key;
+
+    std::cout << "Digite o caminho da pasta: ";
+    std::getline(std::cin, folderPath);
+
+    std::cout << "Digite a chave (0-255): ";
+    int tempKey;
+    std::cin >> tempKey;
+    key = static_cast<unsigned char>(tempKey);
+
+    int option;
+    std::cout << "Escolha uma opção: \n1. Criptografar\n2. Descriptografar\n";
+    std::cin >> option;
+
+    if (option == 1) {
+        processFolder(folderPath, key, true); // Criptografar
+    } else if (option == 2) {
+        processFolder(folderPath, key, false); // Descriptografar
+    } else {
+        std::cerr << "Opção inválida!\n";
+    }
+
+    return 0;
+}
